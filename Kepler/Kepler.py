@@ -1,15 +1,4 @@
-import pandas as pd
 import typer
-from scanpy._utils import _empty, Empty
-import scanpy._utils as _utils
-from typing import (
-        Union,
-        Optional,
-        List,
-        Tuple,
-        Mapping
-        )
-from scanpy.plotting._utils import ColorLike
 
 class Kepler:
     def __init__(self):
