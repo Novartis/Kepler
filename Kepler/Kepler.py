@@ -1,4 +1,5 @@
 import typer
+import pdb
 
 class Kepler:
     def __init__(self):
@@ -63,6 +64,7 @@ class Kepler:
         else:
             cmap_img = None
         circle_radius = size * scale_factor * spot_size * 0.5
+        pdb.set_trace()
 
         axs = embedding(
             adata,
@@ -72,6 +74,7 @@ class Kepler:
             na_color=na_color,
             show=False,
             save=False,
+            add_outline=True,
             **kwargs,
                 )
         if not isinstance(axs, list):
