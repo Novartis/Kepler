@@ -137,6 +137,92 @@ def scspatial(adata, *, basis: str="spatial", img: Union[np.ndarray, None] = Non
     if show is False or return_fig is True:
         return axs
 
+def _get_palette(adata, values_key: str, palette=None):
+    color_key = f"{values_key}_colors"
+    if adata.obs[values_key].dtype == bool:
+        values = pd.Categorical(adata.obs[values_key].astype(str))
+    else:
+        values = pd.Categorical(adata.obs[values_key])
+    if palette:
+        _utils._set_colors_for_categorical_obs(adata, values_key, palette)
+    elif color_key not in adata.uns or len(adata.uns[color_key]) < len(
+        values.categories
+    ):
+        #  set a default palette in case that no colors or few colors are found
+        _utils._set_default_colors_for_categorical_obs(adata, values_key)
+    else:
+        _utils._validate_palette(adata, values_key)
+    return dict(zip(values.categories, adata.uns[color_key]))
+
+def _add_categorical_legend(
+    ax,
+    color_source_vector,
+    palette: dict,
+    legend_loc: str,
+    legend_fontweight,
+    legend_fontsize,
+    legend_fontoutline,
+    multi_panel,
+    na_color,
+    na_in_legend: bool,
+    scatter_array=None,
+):
+    """Add a legend to the passed Axes."""
+    if na_in_legend and pd.isnull(color_source_vector).any():
+        if "NA" in color_source_vector:
+            raise NotImplementedError(
+                "No fallback for null labels has been defined if NA already in categories."
+            )
+        color_source_vector = color_source_vector.add_categories("NA").fillna("NA")
+        palette = palette.copy()
+        palette["NA"] = na_color
+    if color_source_vector.dtype == bool:
+        cats = pd.Categorical(color_source_vector.astype(str)).categories
+    else:
+        cats = color_source_vector.categories
+
+    if multi_panel is True:
+        # Shrink current axis by 10% to fit legend and match
+        # size of plots that are not categorical
+        box = ax.get_position()
+        ax.set_position([box.x0, box.y0, box.width * 0.91, box.height])
+
+    if legend_loc == 'right margin':
+        for label in cats:
+            ax.scatter([], [], c=palette[label], label=label)
+        ax.legend(
+            frameon=False,
+            loc='center left',
+            bbox_to_anchor=(1, 0.5),
+            ncol=(1 if len(cats) <= 14 else 2 if len(cats) <= 30 else 3),
+            fontsize=legend_fontsize,
+        )
+    elif legend_loc == 'on data':
+        # identify centroids to put labels
+
+        all_pos = (
+            pd.DataFrame(scatter_array, columns=["x", "y"])
+            .groupby(color_source_vector, observed=True)
+            .median()
+            # Have to sort_index since if observed=True and categorical is unordered
+            # the order of values in .index is undefined. Related issue:
+            # https://github.com/pandas-dev/pandas/issues/25167
+            .sort_index()
+        )
+
+        for label, x_pos, y_pos in all_pos.itertuples():
+            ax.text(
+                x_pos,
+                y_pos,
+                label,
+                weight=legend_fontweight,
+                verticalalignment='center',
+                horizontalalignment='center',
+                fontsize=legend_fontsize,
+                path_effects=legend_fontoutline,
+            )
+
+
 def _color_vector(
     adata, values_key: str, values, palette, na_color="lightgray"
 ) -> Tuple[np.ndarray, bool]:
